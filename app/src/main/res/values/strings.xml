@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">MyAndroidApp</string>
+    <string name="loading">加载中...</string>
+    <string name="error_network">网络错误</string>
+    <string name="error_unknown">未知错误</string>
+    <string name="success">操作成功</string>
+    
+    <!-- 底部导航 -->
+    <string name="nav_home">首页</string>
+    <string name="nav_devices">设备</string>
+    <string name="nav_automation">自动化</string>
+    <string name="nav_profile">我的</string>
+</resources>
+

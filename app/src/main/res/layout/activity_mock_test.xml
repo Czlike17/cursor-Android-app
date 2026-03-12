@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- 标题 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Mock 层测试工具"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="?attr/colorPrimary"
+            android:gravity="center"
+            android:paddingBottom="16dp" />
+
+        <!-- 状态显示 -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="4dp"
+            android:layout_marginBottom="16dp">
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="300dp">
+
+                <TextView
+                    android:id="@+id/tvStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="16dp"
+                    android:text="准备测试..."
+                    android:textSize="14sp"
+                    android:textColor="?attr/colorOnSurface"
+                    android:fontFamily="monospace" />
+
+            </ScrollView>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 测试按钮 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="单项测试"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="?attr/colorOnSurface"
+            android:paddingBottom="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnTestConnect"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="测试1: MQTT连接"
+            android:layout_marginBottom="8dp"
+            app:icon="@android:drawable/ic_menu_upload" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnTestPublish"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="测试2: 发送指令"
+            android:layout_marginBottom="8dp"
+            app:icon="@android:drawable/ic_menu_send" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnTestSubscribe"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="测试3: 订阅消息"
+            android:layout_marginBottom="16dp"
+            app:icon="@android:drawable/ic_menu_view" />
+
+        <!-- 完整测试 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="完整流程"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="?attr/colorOnSurface"
+            android:paddingBottom="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnTestAll"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="测试4: 完整流程测试"
+            android:textSize="16sp"
+            app:icon="@android:drawable/ic_menu_compass" />
+
+        <!-- 说明 -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFF3E0">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="💡 使用说明"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#E65100"
+                    android:paddingBottom="8dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="1. 先点击「测试1」验证连接\n2. 连接成功后依次测试2、3\n3. 或直接点击「测试4」运行完整流程\n4. 观察状态显示区域的日志输出"
+                    android:textSize="12sp"
+                    android:textColor="#BF360C"
+                    android:lineSpacingExtra="4dp" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+    </LinearLayout>
+
+</ScrollView>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <array name="default_temp_range">
+        <item>20.0</item>
+        <item>28.0</item>
+    </array>
+    
+    <array name="default_humidity_range">
+        <item>40.0</item>
+        <item>70.0</item>
+    </array>
+</resources>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

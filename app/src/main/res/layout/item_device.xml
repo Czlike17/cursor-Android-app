@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <!-- 设备类型图标 -->
+        <ImageView
+            android:id="@+id/ivDeviceIcon"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:contentDescription="设备图标"
+            android:padding="8dp"
+            android:src="@android:drawable/ic_menu_manage"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="?attr/colorPrimary" />
+
+        <!-- 设备名称 -->
+        <TextView
+            android:id="@+id/tvDeviceName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="8dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="?attr/colorOnSurface"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toStartOf="@id/switchPower"
+            app:layout_constraintStart_toEndOf="@id/ivDeviceIcon"
+            app:layout_constraintTop_toTopOf="@id/ivDeviceIcon"
+            tools:text="客厅灯光" />
+
+        <!-- 设备类型 -->
+        <TextView
+            android:id="@+id/tvDeviceType"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="12sp"
+            app:layout_constraintEnd_toEndOf="@id/tvDeviceName"
+            app:layout_constraintStart_toStartOf="@id/tvDeviceName"
+            app:layout_constraintTop_toBottomOf="@id/tvDeviceName"
+            tools:text="灯光" />
+
+        <!-- 电源开关 -->
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/switchPower"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- 分割线 -->
+        <View
+            android:id="@+id/divider"
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_marginTop="12dp"
+            android:background="?attr/colorOutlineVariant"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/ivDeviceIcon" />
+
+        <!-- 在线状态 -->
+        <TextView
+            android:id="@+id/tvOnlineStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:drawablePadding="4dp"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="12sp"
+            app:drawableStartCompat="@android:drawable/presence_online"
+            app:drawableTint="?attr/colorPrimary"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/divider"
+            tools:text="在线" />
+
+        <!-- Broker 地址 -->
+        <TextView
+            android:id="@+id/tvBroker"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="12sp"
+            app:layout_constraintBottom_toBottomOf="@id/tvOnlineStatus"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/tvOnlineStatus"
+            app:layout_constraintTop_toTopOf="@id/tvOnlineStatus"
+            tools:text="192.168.1.100:1883" />
+
+        <!-- Client ID -->
+        <TextView
+            android:id="@+id/tvClientId"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="11sp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvOnlineStatus"
+            tools:text="Client: device_12345678" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</com.google.android.material.card.MaterialCardView>
