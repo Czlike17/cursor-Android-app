@@ -2,7 +2,6 @@ package com.example.myapp.presentation.device
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.myapp.data.local.entity.Device
 import com.example.myapp.data.repository.DeviceRepository
@@ -10,12 +9,17 @@ import com.example.myapp.presentation.base.BaseViewModel
 import com.example.myapp.util.PreferencesManager
 import com.google.gson.Gson
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
  * 设备列表 ViewModel
+ * 修复说明：
+ * 1. 彻底解决 DataStore 异步写入导致的 username 竞态条件死锁。
+ * 2. 引入响应式 collectLatest 监听用户名，保证账号切换或延迟写入时，设备列表能 100% 自动装载。
  */
 @HiltViewModel
 class DeviceViewModel @Inject constructor(
@@ -24,21 +28,27 @@ class DeviceViewModel @Inject constructor(
 ) : BaseViewModel() {
 
     private val gson = Gson()
-    
-    // 当前用户名
+
+    // 使用 Volatile 保证多协程可见性
+    @Volatile
     private var currentUsername: String = ""
 
-    // 设备列表（LiveData 自动监听数据库变化）
+    private var observeJob: Job? = null
+
+    // 设备列表
     private val _devices = MutableLiveData<List<Device>>()
     val devices: LiveData<List<Device>> = _devices
 
     init {
-        // 获取当前用户名并启动设备列表监听
+        // 【核心安全修复】：弃用只读一次的 .first()，改为持续监听用户名流
         viewModelScope.launch {
-            currentUsername = preferencesManager.getUsername().first() ?: ""
-            if (currentUsername.isNotEmpty()) {
-                // 统一使用 Flow 监听设备列表变化，移除竞态冲突
-                observeDevices()
+            preferencesManager.getUsername().collectLatest { username ->
+                val newUsername = username ?: ""
+                // 只要用户名发生合法改变（比如从空变为 admin），立即触发数据库监听
+                if (newUsername.isNotEmpty() && newUsername != currentUsername) {
+                    currentUsername = newUsername
+                    observeDevices(newUsername)
+                }
             }
         }
     }
@@ -46,12 +56,12 @@ class DeviceViewModel @Inject constructor(
     /**
      * 监听设备列表变化（自动刷新）
      */
-    private fun observeDevices() {
-        viewModelScope.launch {
+    private fun observeDevices(username: String) {
+        observeJob?.cancel()
+        observeJob = viewModelScope.launch {
             try {
-                deviceRepository.getDevicesByUsername(currentUsername).collect { devices ->
+                deviceRepository.getDevicesByUsername(username).collect { devices ->
                     _devices.postValue(devices)
-                    // Flow 监听会自动触发，无需手动调用 loadDevices()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -61,20 +71,23 @@ class DeviceViewModel @Inject constructor(
     }
 
     /**
-     * 加载设备列表（带超时保护）
+     * 加载设备列表（带超时保护与容错）
      */
     fun loadDevices() {
-        if (currentUsername.isEmpty()) {
-            viewModelScope.launch {
-                showError("用户未登录")
-            }
-            return
-        }
-
         viewModelScope.launch {
+            // 双重保险：如果此时内存中的用户名还是空，强制同步阻塞读取一次兜底
+            if (currentUsername.isEmpty()) {
+                currentUsername = preferencesManager.getUsername().first() ?: ""
+            }
+
+            if (currentUsername.isEmpty()) {
+                // 如果兜底依然为空，说明真的未登录，静默返回即可
+                return@launch
+            }
+
             try {
                 setLoading(true)
-                
+
                 // 启动超时保护：1 秒后强制停止加载
                 val timeoutJob = launch {
                     kotlinx.coroutines.delay(1000)
@@ -82,15 +95,15 @@ class DeviceViewModel @Inject constructor(
                         setLoading(false)
                     }
                 }
-                
+
                 val result = deviceRepository.getDevicesByUsernameOnce(currentUsername)
                 result.onSuccess { devices ->
                     _devices.postValue(devices)
                 }.onFailure { exception ->
                     showError(exception.message ?: "加载失败")
                 }
-                
-                timeoutJob.cancel() // 取消超时任务
+
+                timeoutJob.cancel()
                 setLoading(false)
             } catch (e: Exception) {
                 setLoading(false)
@@ -105,7 +118,6 @@ class DeviceViewModel @Inject constructor(
     fun toggleDevicePower(device: Device, isOn: Boolean) {
         viewModelScope.launch {
             try {
-                // 更新设备状态
                 val statusMap = try {
                     val existingStatus = gson.fromJson(device.status, Map::class.java) as? MutableMap<String, Any> ?: mutableMapOf()
                     existingStatus["power"] = if (isOn) "on" else "off"
@@ -113,10 +125,10 @@ class DeviceViewModel @Inject constructor(
                 } catch (e: Exception) {
                     mutableMapOf<String, Any>("power" to if (isOn) "on" else "off")
                 }
-                
+
                 val newStatus = gson.toJson(statusMap)
                 val updatedDevice = device.copy(status = newStatus)
-                
+
                 deviceRepository.updateDevice(updatedDevice).onSuccess {
                     showMessage(if (isOn) "已打开" else "已关闭")
                 }.onFailure { exception ->
@@ -149,4 +161,3 @@ class DeviceViewModel @Inject constructor(
         )
     }
 }
-

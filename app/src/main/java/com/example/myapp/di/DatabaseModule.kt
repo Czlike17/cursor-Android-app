@@ -1,6 +1,7 @@
 package com.example.myapp.di
 
 import android.content.Context
+import androidx.room.Room
 import com.example.myapp.data.local.AppDatabase
 import com.example.myapp.data.local.dao.*
 import dagger.Module
@@ -12,73 +13,58 @@ import javax.inject.Singleton
 
 /**
  * 数据库依赖注入模块
- * 提供数据库实例和所有 DAO
+ * 架构升级：完全由 Hilt 接管数据库实例化，并动态支持 Flavor 级回调注入
  */
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 
-    /**
-     * 提供数据库实例
-     */
     @Provides
     @Singleton
-    fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
-        return AppDatabase.getDatabase(context)
+    fun provideAppDatabase(
+        @ApplicationContext context: Context,
+        flavorConfig: IDatabaseFlavorConfig // 【核心】：动态获取当前 Flavor 的配置
+    ): AppDatabase {
+        val builder = Room.databaseBuilder(
+            context.applicationContext,
+            AppDatabase::class.java,
+            "smart_home_database"
+        ).fallbackToDestructiveMigration()
+
+        // 如果当前是 Mock 环境，这里会自动挂载填充假数据的 Callback
+        // 如果是 Prod 环境，返回 null，什么都不做
+        flavorConfig.getDatabaseCallback()?.let {
+            builder.addCallback(it)
+        }
+
+        return builder.build()
     }
 
-    /**
-     * 提供用户 DAO
-     */
     @Provides
     @Singleton
-    fun provideUserDao(database: AppDatabase): UserDao {
-        return database.userDao()
-    }
+    fun provideUserDao(database: AppDatabase): UserDao = database.userDao()
 
-    /**
-     * 提供设备 DAO
-     */
     @Provides
     @Singleton
-    fun provideDeviceDao(database: AppDatabase): DeviceDao {
-        return database.deviceDao()
-    }
+    fun provideDeviceDao(database: AppDatabase): DeviceDao = database.deviceDao()
 
-    /**
-     * 提供用户操作日志 DAO
-     */
     @Provides
     @Singleton
-    fun provideUserHabitLogDao(database: AppDatabase): UserHabitLogDao {
-        return database.userHabitLogDao()
-    }
+    fun provideUserHabitLogDao(database: AppDatabase): UserHabitLogDao = database.userHabitLogDao()
 
-    /**
-     * 提供用户习惯模型 DAO
-     */
     @Provides
     @Singleton
-    fun provideUserHabitDao(database: AppDatabase): UserHabitDao {
-        return database.userHabitDao()
-    }
+    fun provideUserHabitDao(database: AppDatabase): UserHabitDao = database.userHabitDao()
 
-    /**
-     * 提供环境数据缓存 DAO
-     */
     @Provides
     @Singleton
-    fun provideEnvironmentCacheDao(database: AppDatabase): EnvironmentCacheDao {
-        return database.environmentCacheDao()
-    }
+    fun provideEnvironmentCacheDao(database: AppDatabase): EnvironmentCacheDao = database.environmentCacheDao()
 
-    /**
-     * 提供自动控制日志 DAO
-     */
     @Provides
     @Singleton
-    fun provideAutoControlLogDao(database: AppDatabase): AutoControlLogDao {
-        return database.autoControlLogDao()
-    }
+    fun provideAutoControlLogDao(database: AppDatabase): AutoControlLogDao = database.autoControlLogDao()
+
+    @Provides
+    @Singleton
+    fun provideOfflineCommandDao(database: AppDatabase): OfflineCommandDao = database.offlineCommandDao()
 }
-

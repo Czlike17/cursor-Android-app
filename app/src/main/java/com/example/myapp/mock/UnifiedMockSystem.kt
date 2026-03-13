@@ -50,13 +50,33 @@ class UnifiedMockSystem @Inject constructor(
     private var currentTemp = 22.5f
     private var currentHumidity = 55f
     private var currentLight = 400f
-    
+
     /**
      * 初始化 Mock 系统
+     * 终极修复：在 App 启动的瞬间，主动获取当前真实的登录账号并自适应注入！
+     * 完美解决绕过 LoginActivity 自动登录时，设备不显示的问题。
      */
     fun initialize() {
         Timber.d("[MOCK] UnifiedMockSystem initialized")
         startEnvironmentDataGeneration()
+
+        // 自动检查并补齐当前账号的虚拟设备
+        scope.launch {
+            try {
+                // 1. 获取当前真实登录的账号（无论你是 admin 还是 test）
+                val currentUsername = preferencesManager.getUsername().first()
+
+                // 2. 只要有账号登录，立刻为其专属注入设备
+                if (!currentUsername.isNullOrEmpty()) {
+                    Timber.d("[MOCK] 检测到当前自动登录账号: $currentUsername，开始检查并补齐设备")
+                    injectVirtualDevices(currentUsername)
+                } else {
+                    Timber.d("[MOCK] 当前处于未登录状态，等待用户登录后再注入")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "[MOCK] 启动期自动注入设备失败")
+            }
+        }
     }
     
     /**

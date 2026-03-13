@@ -10,22 +10,19 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 /**
- * MQTT 模块
- * 提供 MqttManager 实例
+ * 生产环境特有的注入：连接真实的物理硬件/服务器
  */
 @Module
 @InstallIn(SingletonComponent::class)
-object MqttModule {
-    
+object FlavorMqttModule {
+
     @Provides
     @Singleton
-    fun provideMqttManager(
-        @ApplicationContext context: Context
-    ): MqttManager {
-        // Mock 模式下的配置可以是任意值,因为会被 MockMqttClientManager 拦截
-        val serverUri = "tcp://mock.mqtt.server:1883"
-        val clientId = "mock_client_${System.currentTimeMillis()}"
-        
+    fun provideMqttManager(@ApplicationContext context: Context): MqttManager {
+        // 这里填写真实的生产环境服务器地址
+        val serverUri = "tcp://real.production.server:1883"
+        val clientId = "prod_client_${System.currentTimeMillis()}"
+
         return MqttManager(
             context = context,
             serverUri = serverUri,
@@ -33,20 +30,3 @@ object MqttModule {
         )
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

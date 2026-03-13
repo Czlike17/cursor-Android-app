@@ -18,28 +18,43 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "com.example.myapp.CustomTestRunner"
-        
+
         vectorDrawables {
             useSupportLibrary = true
         }
-        
-        // Mock 模式开关 - 硬件就绪后改为 false
-        buildConfigField("boolean", "IS_MOCK_MODE", "true")
+        // 【安全修复】：已移除这里原有的全局 IS_MOCK_MODE
     }
 
     buildTypes {
         debug {
-            // Debug 模式强制启用 Mock
-            buildConfigField("boolean", "IS_MOCK_MODE", "true")
+            // 【安全修复】：已移除这里的 IS_MOCK_MODE
         }
-        
+
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Release 模式可以关闭 Mock（硬件就绪后）
+            // 【安全修复】：已移除这里的 IS_MOCK_MODE
+        }
+    }
+
+    // 【新增核心架构】：Flavor 维度物理隔离
+    flavorDimensions += "environment"
+
+    productFlavors {
+        create("mock") {
+            dimension = "environment"
+            // 包名追加 .mock，允许真机上同时安装“真实App”和“模拟App”不冲突
+            applicationIdSuffix = ".mock"
+            versionNameSuffix = "-mock"
+            // 完美向下兼容：保留常量供原有代码读取，但由编译器严格控制
+            buildConfigField("boolean", "IS_MOCK_MODE", "true")
+        }
+
+        create("prod") {
+            dimension = "environment"
             buildConfigField("boolean", "IS_MOCK_MODE", "false")
         }
     }
