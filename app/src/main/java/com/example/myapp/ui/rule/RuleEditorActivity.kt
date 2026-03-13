@@ -14,15 +14,12 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
-/**
- * 规则编辑器 Activity
- */
 @AndroidEntryPoint
 class RuleEditorActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityRuleEditorBinding
     private val viewModel: RuleEditorViewModel by viewModels()
-    
+
     private val steps = listOf(
         StepDeviceFragment(),
         StepActionFragment(),
@@ -35,7 +32,16 @@ class RuleEditorActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityRuleEditorBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        
+
+        // 【新增】：探测编辑模式，加载回显数据并改变标题
+        val habitId = intent.getLongExtra("habit_id", -1L)
+        if (habitId != -1L) {
+            binding.toolbar.title = "编辑规则"
+            viewModel.loadHabitData(habitId)
+        } else {
+            binding.toolbar.title = "新建规则"
+        }
+
         setupBackPressHandler()
         setupToolbar()
         setupViewPager()
@@ -51,7 +57,7 @@ class RuleEditorActivity : AppCompatActivity() {
                     onBackPressedDispatcher.onBackPressed()
                     return
                 }
-                
+
                 MaterialAlertDialogBuilder(this@RuleEditorActivity)
                     .setTitle("确认退出")
                     .setMessage("确定要放弃当前编辑吗?")
@@ -75,19 +81,17 @@ class RuleEditorActivity : AppCompatActivity() {
         binding.viewPager.apply {
             adapter = StepPagerAdapter()
             isUserInputEnabled = false // 禁止滑动,只能通过按钮切换
-            
+
             registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
                 override fun onPageSelected(position: Int) {
                     super.onPageSelected(position)
                     updateButtons(position)
                     updateStepIndicator(position)
-                    // 保存当前步骤到 ViewModel（支持状态恢复）
                     viewModel.setCurrentStep(position)
                 }
             })
         }
-        
-        // 恢复上次的步骤位置
+
         lifecycleScope.launch {
             viewModel.currentStep.collect { step ->
                 if (binding.viewPager.currentItem != step) {
@@ -98,15 +102,15 @@ class RuleEditorActivity : AppCompatActivity() {
     }
 
     private fun updateStepIndicator(position: Int) {
-        val steps = listOf(
+        val stepsIndicators = listOf(
             binding.tvStep1,
             binding.tvStep2,
             binding.tvStep3,
             binding.tvStep4,
             binding.tvStep5
         )
-        
-        steps.forEachIndexed { index, textView ->
+
+        stepsIndicators.forEachIndexed { index, textView ->
             if (index == position) {
                 textView.setTextColor(getColor(com.google.android.material.R.color.material_dynamic_primary50))
                 textView.textSize = 14f
@@ -133,22 +137,17 @@ class RuleEditorActivity : AppCompatActivity() {
 
         binding.btnNext.setOnClickListener {
             val currentItem = binding.viewPager.currentItem
-            
-            // 验证当前步骤
-            if (!validateCurrentStep(currentItem)) {
-                return@setOnClickListener
-            }
-            
+
+            if (!validateCurrentStep(currentItem)) return@setOnClickListener
+
             if (currentItem < steps.size - 1) {
                 binding.viewPager.currentItem = currentItem + 1
             } else {
-                // 最后一步,保存规则（防抖：禁用按钮）
                 binding.btnNext.isEnabled = false
-                saveRule()
+                viewModel.saveRule()
             }
         }
-        
-        // 监听保存状态，保存完成后恢复按钮
+
         lifecycleScope.launch {
             viewModel.isSaving.collect { isSaving ->
                 binding.btnNext.isEnabled = !isSaving
@@ -168,7 +167,7 @@ class RuleEditorActivity : AppCompatActivity() {
             2 -> viewModel.timeWindow.value != null
             else -> true
         }
-        
+
         if (!isValid) {
             MaterialAlertDialogBuilder(this)
                 .setTitle("提示")
@@ -176,12 +175,8 @@ class RuleEditorActivity : AppCompatActivity() {
                 .setPositiveButton("确定", null)
                 .show()
         }
-        
-        return isValid
-    }
 
-    private fun saveRule() {
-        viewModel.saveRule()
+        return isValid
     }
 
     private fun observeViewModel() {
@@ -212,4 +207,3 @@ class RuleEditorActivity : AppCompatActivity() {
         override fun createFragment(position: Int): Fragment = steps[position]
     }
 }
-
