@@ -19,7 +19,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
-/** 首页 Fragment - 设备列表 */
+
 @AndroidEntryPoint
 class HomeFragment : BaseFragment<FragmentHomeBinding, DeviceViewModel>() {
 
@@ -28,8 +28,8 @@ class HomeFragment : BaseFragment<FragmentHomeBinding, DeviceViewModel>() {
     private lateinit var deviceAdapter: DeviceAdapter
 
     override fun createViewBinding(
-            inflater: LayoutInflater,
-            container: ViewGroup?
+        inflater: LayoutInflater,
+        container: ViewGroup?
     ): FragmentHomeBinding {
         return FragmentHomeBinding.inflate(inflater, container, false)
     }
@@ -42,53 +42,47 @@ class HomeFragment : BaseFragment<FragmentHomeBinding, DeviceViewModel>() {
         super.onViewCreated(view, savedInstanceState)
         initView()
         observeData()
-
-        // 加载设备列表
-        viewModel.loadDevices()
+        // 已删除 viewModel.loadDevices()
     }
 
     private fun initView() {
-        // 设置 RecyclerView
-        deviceAdapter =
-                DeviceAdapter(
-                        onDeviceClick = { device ->
-                            // 跳转到设备控制详情页
-                            val intent =
-                                    Intent(requireContext(), DeviceControlActivity::class.java)
-                                            .apply {
-                                                putExtra("device_id", device.deviceId)
-                                                putExtra("device_type", device.deviceType)
-                                            }
-                            startActivity(intent)
-                        },
-                        onPowerToggle = { device, isOn ->
-                            viewModel.toggleDevicePower(device, isOn)
-                        }
-                )
+        deviceAdapter = DeviceAdapter(
+            onDeviceClick = { device ->
+                val intent = Intent(requireContext(), DeviceControlActivity::class.java).apply {
+                    putExtra("device_id", device.deviceId)
+                    putExtra("device_type", device.deviceType)
+                }
+                startActivity(intent)
+            },
+            onPowerToggle = { device, isOn ->
+                viewModel.toggleDevicePower(device, isOn)
+            }
+        )
 
         binding.rvDevices.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = deviceAdapter
         }
 
-        // 下拉刷新
-        binding.swipeRefresh.setOnRefreshListener { viewModel.loadDevices() }
+        // 数据是实时响应的，下拉刷新只需重置状态即可，提供视觉反馈
+        binding.swipeRefresh.setOnRefreshListener {
+            binding.swipeRefresh.isRefreshing = false
+        }
 
-        // 添加设备按钮
         binding.fabAdd.setOnClickListener {
             startActivity(Intent(requireContext(), AddDeviceActivity::class.java))
         }
     }
 
     private fun observeData() {
-        // 观察设备列表
         viewModel.devices.observe(viewLifecycleOwner) { devices ->
             if (devices == null) return@observe
 
-            deviceAdapter.submitList(devices)
+            // 【关键修复】：深度复制生成全新内存地址，彻底打断 DiffUtil 错觉
+            val newList = ArrayList(devices)
 
-            // 显示/隐藏空状态
-            if (devices.isEmpty()) {
+            // 优先处理空视图逻辑，保证布局可见性正确
+            if (newList.isEmpty()) {
                 binding.layoutEmpty.visible()
                 binding.rvDevices.gone()
             } else {
@@ -96,49 +90,28 @@ class HomeFragment : BaseFragment<FragmentHomeBinding, DeviceViewModel>() {
                 binding.rvDevices.visible()
             }
 
-            // 更新环境数据
-            updateEnvironmentData(devices)
-        }
-
-        // 观察加载状态（强制 1 秒超时）
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.isLoading.collect { isLoading ->
-                if (isLoading) {
-                    binding.swipeRefresh.isRefreshing = true
-
-                    // 启动超时保护：1 秒后强制停止刷新
-                    launch {
-                        kotlinx.coroutines.delay(1000)
-                        if (binding.swipeRefresh.isRefreshing) {
-                            binding.swipeRefresh.isRefreshing = false
-                            Timber.w("[HomeFragment] 刷新超时，强制停止")
-                        }
-                    }
-                } else {
-                    binding.swipeRefresh.isRefreshing = false
+            // 【关键修复】：利用 submitList 回调，在数据计算完毕后强制重绘 View
+            deviceAdapter.submitList(newList) {
+                if (isAdded && view != null) {
+                    binding.rvDevices.requestLayout()
                 }
             }
+
+            updateEnvironmentData(newList)
         }
 
-        // 观察错误信息
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.error.collect { error ->
-                if (error.isNotEmpty()) {
-                    requireContext().showToast(error)
-                }
+                if (error.isNotEmpty()) requireContext().showToast(error)
             }
         }
 
-        // 观察成功消息
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.message.collect { message ->
-                if (message.isNotEmpty()) {
-                    requireContext().showToast(message)
-                }
+                if (message.isNotEmpty()) requireContext().showToast(message)
             }
         }
 
-        // Mock 模式：观察环境数据流
         if (BuildConfig.IS_MOCK_MODE) {
             viewLifecycleOwner.lifecycleScope.launch {
                 unifiedMockSystem.environmentDataFlow.collect { envData ->
@@ -148,23 +121,18 @@ class HomeFragment : BaseFragment<FragmentHomeBinding, DeviceViewModel>() {
         }
     }
 
-    /** 更新环境数据显示 */
     private fun updateEnvironmentData(devices: List<com.example.myapp.data.local.entity.Device>) {
         if (!isAdded || view == null) return
 
-        // 查找温湿度传感器设备
-        val sensorDevice =
-                devices.find { it.deviceType.contains("sensor", ignoreCase = true) && it.isOnline }
+        val sensorDevice = devices.find { it.deviceType.contains("sensor", ignoreCase = true) && it.isOnline }
 
         if (sensorDevice != null) {
             try {
-                // 解析设备状态 JSON
                 val statusJson = org.json.JSONObject(sensorDevice.status)
                 val temperature = statusJson.optDouble("temperature", 0.0)
                 val humidity = statusJson.optDouble("humidity", 0.0)
                 val lightIntensity = statusJson.optDouble("lightIntensity", 0.0)
 
-                // 显示环境数据
                 binding.layoutEnvironmentData.visible()
                 binding.tvNoEnvironmentData.gone()
 
@@ -180,22 +148,17 @@ class HomeFragment : BaseFragment<FragmentHomeBinding, DeviceViewModel>() {
         }
     }
 
-    /** 显示无环境数据状态 */
     private fun showNoEnvironmentData() {
         if (!isAdded || view == null) return
-
         binding.layoutEnvironmentData.gone()
         binding.tvNoEnvironmentData.visible()
     }
 
-    /** 更新 Mock 环境数据（每 3 秒自动更新） */
     private fun updateMockEnvironmentData(envData: com.example.myapp.mock.EnvironmentData) {
         try {
             if (!isAdded || view == null) return
-
             binding.layoutEnvironmentData.visible()
             binding.tvNoEnvironmentData.gone()
-
             binding.tvTemperature.text = String.format("%.1f°C", envData.temperature)
             binding.tvHumidity.text = String.format("%.0f%%", envData.humidity)
             binding.tvLightIntensity.text = String.format("%.0f lx", envData.light)
@@ -206,14 +169,12 @@ class HomeFragment : BaseFragment<FragmentHomeBinding, DeviceViewModel>() {
 
     override fun onResume() {
         super.onResume()
-        // 页面显示时刷新数据
-        refreshData()
+        // 页面显示时，激活双重硬核兜底
+        viewModel.forceRefresh()
     }
 
-    /** 刷新数据（公开方法，供 MainActivity 调用） */
     fun refreshData() {
-        viewModel.loadDevices()
-        Timber.d("[HomeFragment] Data refreshed")
+        Timber.d("[HomeFragment] Manual refresh ignored, using Flow + forceRefresh")
     }
 
     companion object {

@@ -289,19 +289,47 @@ class CustomAutoControlEngine @Inject constructor(
     /**
      * 执行自动控制
      */
+
     private suspend fun executeAutoControl(habit: UserHabit, username: String) {
         try {
             // 获取设备信息
             val device = deviceDao.getDeviceById(habit.deviceId, username) ?: return
-            
-            // 发送MQTT指令
-            val payload = habit.actionCommand
-            mqttClientManager.publish(
-                topic = device.publishTopic,
-                payload = payload,
-                qos = 1
-            )
-            
+
+            // 【关键闭环 2】：Mock 模式下拦截网络层，直接驱动 Room 数据库
+            if (com.example.myapp.BuildConfig.IS_MOCK_MODE) {
+                delay(500) // 模拟网络延迟
+
+                // 尝试提取现有状态和指令并合并
+                val currentStatusMap = try {
+                    gson.fromJson(device.status, MutableMap::class.java) as? MutableMap<String, Any> ?: mutableMapOf()
+                } catch (e: Exception) {
+                    mutableMapOf<String, Any>()
+                }
+
+                val commandMap = try {
+                    gson.fromJson(habit.actionCommand, Map::class.java) as? Map<String, Any> ?: emptyMap()
+                } catch (e: Exception) {
+                    // 容错：如果 action 不是 JSON 格式，默认当作电源开关处理
+                    mapOf("power" to habit.actionCommand)
+                }
+
+                currentStatusMap.putAll(commandMap)
+                val updatedDevice = device.copy(status = gson.toJson(currentStatusMap))
+
+                // 直接更新数据库，这会触发 HomeFragment 里的 Flow，实现首页自动翻转开关！
+                deviceDao.update(updatedDevice)
+
+                Timber.i("AutoControlEngine: [MOCK] Executed habit ${habit.habitName}, UI will auto-refresh.")
+            } else {
+                // 生产环境：发送真实的 MQTT 指令
+                val payload = habit.actionCommand
+                mqttClientManager.publish(
+                    topic = device.publishTopic,
+                    payload = payload,
+                    qos = 1
+                )
+            }
+
             // 记录自动控制日志
             val log = AutoControlLog(
                 habitId = habit.id,
@@ -315,12 +343,12 @@ class CustomAutoControlEngine @Inject constructor(
                 username = username
             )
             autoControlLogDao.insert(log)
-            
+
             Timber.i("AutoControlEngine: Executed habit ${habit.habitName} for device ${device.deviceName}")
-            
+
         } catch (e: Exception) {
             Timber.e(e, "AutoControlEngine: Failed to execute habit ${habit.habitName}")
-            
+
             // 记录失败日志
             val log = AutoControlLog(
                 habitId = habit.id,

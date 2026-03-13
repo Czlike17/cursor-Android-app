@@ -372,6 +372,7 @@ class AddDeviceViewModel @Inject constructor(
         }
 
         // 创建设备对象
+        val isMockOrDebug = com.example.myapp.BuildConfig.DEBUG
         val device = Device(
             deviceName = deviceName,
             deviceType = deviceType.typeName,
@@ -381,15 +382,13 @@ class AddDeviceViewModel @Inject constructor(
             publishTopic = publishTopic,
             clientId = clientId,
             status = gson.toJson(mapOf("power" to "off")),
-            isOnline = false,
+            isOnline = isMockOrDebug, // <--- 重点修改：测试环境下添加即可控制
             username = currentUsername
         )
 
         // 保存到数据库
         executeWithLoading(
-            block = {
-                deviceRepository.insertDevice(device)
-            },
+            block = { deviceRepository.insertDevice(device) },
             onSuccess = {
                 launchOnUI {
                     showMessage("设备添加成功")
