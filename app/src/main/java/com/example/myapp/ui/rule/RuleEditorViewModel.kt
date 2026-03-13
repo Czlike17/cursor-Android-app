@@ -364,7 +364,22 @@ class RuleEditorViewModel @Inject constructor(
     }
 
     private fun buildActionCommand(action: String): String {
-        val command = mapOf("action" to action)
+        // 【企业级兼容与安全方案】：根据 UI 动作映射到底层 JSON 协议
+        val command = mutableMapOf<String, Any>()
+
+        when (action.lowercase()) {
+            "on", "打开", "开" -> command["power"] = "on"
+            "off", "关闭", "关" -> command["power"] = "off"
+            // 未来可安全扩展其他指令，例如：
+            // "brightness_up" -> command["brightness"] = 80
+            // "temp_26" -> command["temperature"] = 26
+            else -> {
+                // 默认兜底：如果无法匹配，作为 action 字段发送，或者记录警告
+                Timber.w("Unknown action format: $action, fallback to power")
+                command["power"] = action // 尝试直接当作电源指令
+            }
+        }
+
         return gson.toJson(command)
     }
 

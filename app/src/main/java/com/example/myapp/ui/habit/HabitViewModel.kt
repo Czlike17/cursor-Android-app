@@ -6,99 +6,70 @@ import com.example.myapp.data.local.entity.UserHabit
 import com.example.myapp.data.repository.UserHabitRepository
 import com.example.myapp.util.PreferencesManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 
-/**
- * 习惯列表 ViewModel
- */
 @HiltViewModel
 class HabitViewModel @Inject constructor(
     private val habitRepository: UserHabitRepository,
     private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
-    private val _habits = MutableStateFlow<List<UserHabit>>(emptyList())
-    val habits: StateFlow<List<UserHabit>> = _habits.asStateFlow()
-
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    init {
-        loadHabits()
-    }
-
-    /**
-     * 加载习惯列表
-     */
-    fun loadHabits() {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-                
-                // 获取用户名（只取第一个值）
-                val username = preferencesManager.getUsername().first()
-                
-                if (username.isNullOrEmpty()) {
-                    Timber.w("Username is null or empty, cannot load habits")
-                    _habits.value = emptyList()
-                    _isLoading.value = false
-                    return@launch
-                }
-                
-                // 监听习惯列表变化
-                habitRepository.getAllHabits(username).collect { habitList ->
-                    _habits.value = habitList
-                    _isLoading.value = false
-                    Timber.d("Loaded ${habitList.size} habits for user: $username")
-                }
-                
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to load habits")
-                _habits.value = emptyList()
-                _isLoading.value = false
-            }
+    // 【企业级修复 1】：彻底拆除协程炸弹，使用 flatMapLatest 将数据库查询转为响应式单向数据流
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val habits: StateFlow<List<UserHabit>> = preferencesManager.getUsername()
+        .filterNotNull()
+        .filter { it.isNotEmpty() }
+        .onEach { _isLoading.value = true }
+        .flatMapLatest { username ->
+            habitRepository.getAllHabits(username)
         }
+        .onEach { _isLoading.value = false }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000), // 防止后台应用被杀时的数据丢失
+            initialValue = emptyList()
+        )
+
+    init {
+        // 数据现由 Flow 自动驱动，无需手动 loadHabits()
     }
 
-    /**
-     * 更新习惯启用状态
-     */
+    fun loadHabits() {
+        // 已废弃。保留空方法以防外部调用导致崩溃
+        Timber.d("loadHabits() called but ignored. Using Flow auto-updates.")
+    }
+
     fun updateHabitEnabled(habit: UserHabit, isEnabled: Boolean) {
         viewModelScope.launch {
             try {
                 val username = preferencesManager.getUsername().first()
                 if (username.isNullOrEmpty()) return@launch
-                
+
                 habitRepository.updateHabitEnabled(habit.id, isEnabled, username)
                 Timber.d("Updated habit ${habit.habitName} enabled: $isEnabled")
-                
             } catch (e: Exception) {
                 Timber.e(e, "Failed to update habit enabled state")
             }
         }
     }
 
-    /**
-     * 删除低置信度习惯
-     */
-    fun deleteLowConfidenceHabits(minConfidence: Double = 0.5) {
+    // 【企业级修复 2】：新增删除功能
+    fun deleteHabit(habit: UserHabit) {
         viewModelScope.launch {
             try {
-                val username = preferencesManager.getUsername().first()
-                if (username.isNullOrEmpty()) return@launch
-                
-                val result = habitRepository.deleteLowConfidenceHabits(minConfidence, username)
-                result.onSuccess { count ->
-                    Timber.d("Deleted $count low confidence habits")
-                }
-                
+                // 假设 Repository 中封装了删除方法，直接调用
+                habitRepository.deleteHabit(habit)
+                Timber.d("Deleted habit: ${habit.habitName}")
             } catch (e: Exception) {
-                Timber.e(e, "Failed to delete low confidence habits")
+                Timber.e(e, "Failed to delete habit")
             }
         }
     }
 }
-

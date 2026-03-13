@@ -50,8 +50,10 @@ class MainActivity : BaseActivity<ActivityMainBinding, MainViewModel>() {
                     true
                 }
                 R.id.nav_rule -> {
-                    // 规则页面 - 暂时显示提示
-                    showToast("规则功能开发中，请在习惯页面查看习惯数据")
+                    // 【核心修复】：点击规则，直接作为快捷入口打开规则编辑器！
+                    val intent = android.content.Intent(this@MainActivity, com.example.myapp.ui.rule.RuleEditorActivity::class.java)
+                    startActivity(intent)
+                    // 返回 false，底部的光标不移动，依然停留在当前页面，维持原有栈结构
                     false
                 }
                 R.id.nav_profile -> {
@@ -111,5 +113,20 @@ class MainActivity : BaseActivity<ActivityMainBinding, MainViewModel>() {
         // 刷新习惯页面
         val habitFragment = supportFragmentManager.findFragmentByTag(com.example.myapp.ui.habit.HabitFragment::class.java.simpleName) as? com.example.myapp.ui.habit.HabitFragment
         habitFragment?.refreshData()
+    }
+    // 在 MainActivity.kt 底部添加
+    // 2. 在 MainActivity.kt 类的最底部，添加这个跳转方法
+    /**
+     * 【新增支持】：提供给 HabitFragment 等内部跳转详情页使用
+     */
+    fun navigateToFragment(fragment: Fragment) {
+        supportFragmentManager.beginTransaction().apply {
+            currentFragment?.let { hide(it) }
+            val tag = fragment.javaClass.simpleName
+            add(R.id.fragmentContainer, fragment, tag)
+            addToBackStack(null) // 允许按返回键退回
+            currentFragment = fragment
+            commit()
+        }
     }
 }

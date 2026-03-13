@@ -1,5 +1,6 @@
 package com.example.myapp.ui.habit
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -7,15 +8,18 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.example.myapp.data.local.entity.UserHabit
 import com.example.myapp.databinding.FragmentHabitBinding
+import com.example.myapp.presentation.main.MainActivity
+import com.example.myapp.ui.rule.RuleEditorActivity
+import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
-/**
- * 习惯列表 Fragment
- */
 @AndroidEntryPoint
 class HabitFragment : Fragment() {
 
@@ -37,21 +41,15 @@ class HabitFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
+        setupSwipeToDelete()
         setupSwipeRefresh()
         setupFab()
         observeViewModel()
-    }
-    
-    override fun onResume() {
-        super.onResume()
-        // 每次返回时刷新数据
-        viewModel.loadHabits()
     }
 
     private fun setupRecyclerView() {
         habitAdapter = HabitAdapter(
             onItemClick = { habit ->
-                // 跳转到习惯详情页
                 navigateToHabitDetail(habit.id)
             },
             onSwitchChanged = { habit, isEnabled ->
@@ -65,15 +63,42 @@ class HabitFragment : Fragment() {
         }
     }
 
+    private fun setupSwipeToDelete() {
+        val itemTouchHelperCallback = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                return false
+            }
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.adapterPosition
+                val habitToTrash = habitAdapter.currentList[position]
+
+                // 执行删除逻辑
+                viewModel.deleteHabit(habitToTrash)
+
+                // 弹出原生底部提示框
+                Snackbar.make(
+                    binding.root,
+                    "习惯/规则已删除",
+                    Snackbar.LENGTH_SHORT
+                ).show()
+            }
+        }
+        ItemTouchHelper(itemTouchHelperCallback).attachToRecyclerView(binding.recyclerView)
+    }
+
     private fun setupSwipeRefresh() {
         binding.swipeRefresh.setOnRefreshListener {
-            viewModel.loadHabits()
+            binding.swipeRefresh.isRefreshing = false // Flow 是实时的，下拉只重置 UI 状态
         }
     }
 
     private fun setupFab() {
         binding.fabAdd.setOnClickListener {
-            // 跳转到规则编辑器
             navigateToRuleEditor()
         }
     }
@@ -85,26 +110,6 @@ class HabitFragment : Fragment() {
                 updateEmptyView(habits.isEmpty())
             }
         }
-
-        // 观察加载状态（强制 1 秒超时）
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.isLoading.collect { isLoading ->
-                if (isLoading) {
-                    binding.swipeRefresh.isRefreshing = true
-                    
-                    // 启动超时保护：1 秒后强制停止刷新
-                    launch {
-                        kotlinx.coroutines.delay(1000)
-                        if (binding.swipeRefresh.isRefreshing) {
-                            binding.swipeRefresh.isRefreshing = false
-                            Timber.w("[HabitFragment] 刷新超时，强制停止")
-                        }
-                    }
-                } else {
-                    binding.swipeRefresh.isRefreshing = false
-                }
-            }
-        }
     }
 
     private fun updateEmptyView(isEmpty: Boolean) {
@@ -113,19 +118,25 @@ class HabitFragment : Fragment() {
     }
 
     private fun navigateToHabitDetail(habitId: Long) {
-        // TODO: 实现导航到详情页
+        // 【已修复：引用错误】不猜测是否存在 newInstance 方法，使用原生的 Bundle 传递参数最安全
+        val detailFragment = HabitDetailFragment().apply {
+            arguments = Bundle().apply {
+                putLong("habit_id", habitId)
+            }
+        }
+
+        // 【已修复：引用错误】使用明确的 import 进行类型转换
+        (requireActivity() as? MainActivity)?.navigateToFragment(detailFragment)
     }
 
     private fun navigateToRuleEditor() {
-        // TODO: 实现导航到规则编辑器
+        // 【已修复：引用错误】使用已 import 的目标 Activity，防止路径缺失报错
+        val intent = Intent(requireContext(), RuleEditorActivity::class.java)
+        startActivity(intent)
     }
-    
-    /**
-     * 刷新数据（公开方法，供 MainActivity 调用）
-     */
+
     fun refreshData() {
-        viewModel.loadHabits()
-        Timber.d("[HabitFragment] Data refreshed")
+        Timber.d("[HabitFragment] Data refresh handled by StateFlow")
     }
 
     override fun onDestroyView() {
@@ -133,7 +144,3 @@ class HabitFragment : Fragment() {
         _binding = null
     }
 }
-
-
-
-
