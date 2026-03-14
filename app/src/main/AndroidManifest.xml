@@ -1,10 +1,8 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <!-- 网络权限 -->
-    <uses-permission android:name="android.permission.INTERNET" />
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"> <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    
-    <!-- MQTT 服务权限 -->
+
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
@@ -18,10 +16,19 @@
         android:theme="@style/Theme.MyApp"
         android:usesCleartextTraffic="true">
 
-        <!-- MQTT Service -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
         <service android:name="org.eclipse.paho.android.service.MqttService" />
 
-        <!-- 启动页（入口） -->
         <activity
             android:name=".presentation.auth.SplashActivity"
             android:exported="true"
@@ -32,47 +39,39 @@
             </intent-filter>
         </activity>
 
-        <!-- 登录页 -->
         <activity
             android:name=".presentation.auth.LoginActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- 注册页 -->
         <activity
             android:name=".presentation.auth.RegisterActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- 主页 -->
         <activity
             android:name=".presentation.main.MainActivity"
             android:exported="false" />
 
-        <!-- 添加设备页 -->
         <activity
             android:name=".presentation.device.AddDeviceActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- 设备控制详情页 -->
         <activity
             android:name=".presentation.device.DeviceControlActivity"
             android:exported="false" />
 
-        <!-- 快速设备创建工具（调试用） -->
         <activity
             android:name=".ui.debug.QuickDeviceCreatorActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- 规则编辑器 -->
         <activity
             android:name=".ui.rule.RuleEditorActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- 网络状态监听器 -->
         <receiver
             android:name=".util.NetworkStateReceiver"
             android:exported="false">
@@ -83,4 +82,3 @@
     </application>
 
 </manifest>
-

@@ -3,9 +3,6 @@ package com.example.myapp
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
-import com.example.myapp.engine.CustomAutoControlEngine
-import com.example.myapp.mock.MockEngineLifecycleManager
-import com.example.myapp.util.WorkManagerScheduler
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import javax.inject.Inject
@@ -13,40 +10,29 @@ import javax.inject.Inject
 @HiltAndroidApp
 class MyApplication : Application(), Configuration.Provider {
 
+    // 【核心注入】：引入 Hilt 专用的 Worker 工厂
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
-    
-    @Inject
-    lateinit var autoControlEngine: CustomAutoControlEngine
-    @Inject
-    lateinit var mockEngineLifecycleManager: MockEngineLifecycleManager
 
     override fun onCreate() {
         super.onCreate()
-        
-        // 初始化 Timber
+
+        // 初始化日志工具
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
-        
-        // 启动环境数据采集任务
-        WorkManagerScheduler.scheduleEnvironmentDataCollection(this)
-        
-        // 启动习惯提取任务（每日凌晨2点）
-        WorkManagerScheduler.scheduleHabitExtraction(this)
-        
-        // 启动自动控制引擎
-        autoControlEngine.start()
-        
-        Timber.d("Application initialized")
-        if (BuildConfig.IS_MOCK_MODE) {
-            mockEngineLifecycleManager.initialize()
-        }
     }
-    
+
+    // 【核心修复】：接管全局 WorkManager 的配置，强制使用 Hilt 的工厂来实例化 Worker
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
             .build()
-}
 
+    // 注意：如果你的 androidx.work 版本较低，可能需要重写 getWorkManagerConfiguration() 方法，如下所示：
+    // override fun getWorkManagerConfiguration(): Configuration {
+    //     return Configuration.Builder()
+    //         .setWorkerFactory(workerFactory)
+    //         .build()
+    // }
+}

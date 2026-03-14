@@ -21,30 +21,25 @@ class UserHabitRepository @Inject constructor(
 
     // ==================== 操作日志相关 ====================
 
-    /**
-     * 记录用户操作
-     */
     suspend fun logUserOperation(log: UserHabitLog): Result<Long> = safeDatabaseCall {
         userHabitLogDao.insert(log)
     }
 
-    /**
-     * 获取设备的操作日志
-     */
     fun getLogsByDevice(deviceId: Long, username: String): Flow<List<UserHabitLog>> {
         return userHabitLogDao.getLogsByDevice(deviceId, username)
     }
 
-    /**
-     * 获取时间范围内的操作日志
-     */
     fun getLogsByTimeRange(startTime: Long, endTime: Long, username: String): Flow<List<UserHabitLog>> {
         return userHabitLogDao.getLogsByTimeRangeFlow(startTime, endTime, username)
     }
 
     /**
-     * 获取用于习惯学习的日志数据
+     * 【AI引擎专用】：一次性获取时间范围内的所有操作日志
      */
+    suspend fun getLogsByTimeRangeOnce(startTime: Long, endTime: Long, username: String): Result<List<UserHabitLog>> = safeDatabaseCall {
+        userHabitLogDao.getLogsByTimeRange(startTime, endTime, username)
+    }
+
     suspend fun getLogsForLearning(
         deviceId: Long,
         startTime: Long,
@@ -54,116 +49,84 @@ class UserHabitRepository @Inject constructor(
         userHabitLogDao.getLogsForLearning(deviceId, startTime, endTime, username)
     }
 
-    /**
-     * 清理旧日志
-     */
     suspend fun cleanOldLogs(beforeTimestamp: Long, username: String): Result<Int> = safeDatabaseCall {
         userHabitLogDao.deleteLogsBeforeTime(beforeTimestamp, username)
     }
 
     // ==================== 习惯模型相关 ====================
 
-    /**
-     * 保存或更新习惯
-     */
     suspend fun saveHabit(habit: UserHabit): Result<Long> = safeDatabaseCall {
         userHabitDao.insert(habit)
     }
 
-    /**
-     * 获取所有习惯
-     */
     fun getAllHabits(username: String): Flow<List<UserHabit>> {
         return userHabitDao.getAllHabits(username)
     }
 
-    /**
-     * 获取已启用的习惯
-     */
     fun getEnabledHabits(username: String): Flow<List<UserHabit>> {
         return userHabitDao.getEnabledHabits(username)
     }
 
-    /**
-     * 获取设备的习惯
-     */
     fun getHabitsByDevice(deviceId: Long, username: String): Flow<List<UserHabit>> {
         return userHabitDao.getHabitsByDevice(deviceId, username)
     }
 
-    /**
-     * 获取可触发的习惯
-     */
-    suspend fun getTriggableHabits(
-        weekType: Int,
-        username: String
-    ): Result<List<UserHabit>> = safeDatabaseCall {
+    suspend fun getTriggableHabits(weekType: Int, username: String): Result<List<UserHabit>> = safeDatabaseCall {
         userHabitDao.getTriggableHabits(weekType, username)
     }
 
-    /**
-     * 更新习惯启用状态
-     */
-    suspend fun updateHabitEnabled(
-        habitId: Long,
-        isEnabled: Boolean,
-        username: String
-    ): Result<Int> = safeDatabaseCall {
+    suspend fun updateHabitEnabled(habitId: Long, isEnabled: Boolean, username: String): Result<Int> = safeDatabaseCall {
         userHabitDao.updateHabitEnabled(habitId, isEnabled, username)
     }
 
-    /**
-     * 更新习惯置信度
-     */
-    suspend fun updateHabitConfidence(
-        habitId: Long,
-        confidence: Double,
-        username: String
-    ): Result<Int> = safeDatabaseCall {
+    suspend fun updateHabitConfidence(habitId: Long, confidence: Double, username: String): Result<Int> = safeDatabaseCall {
         userHabitDao.updateHabitConfidence(habitId, confidence, System.currentTimeMillis(), username)
     }
 
-    /**
-     * 获取高置信度习惯
-     */
     fun getHighConfidenceHabits(minConfidence: Double, username: String): Flow<List<UserHabit>> {
         return userHabitDao.getHighConfidenceHabits(minConfidence, username)
     }
 
-    /**
-     * 删除低置信度习惯
-     */
     suspend fun deleteLowConfidenceHabits(minConfidence: Double, username: String): Result<Int> = safeDatabaseCall {
         userHabitDao.deleteLowConfidenceHabits(minConfidence, username)
     }
 
-    /**
-     * 删除设备的所有习惯
-     */
     suspend fun deleteHabitsByDevice(deviceId: Long, username: String): Result<Int> = safeDatabaseCall {
         userHabitDao.deleteHabitsByDevice(deviceId, username)
     }
-    
-    /**
-     * 添加习惯
-     */
+
     suspend fun addHabit(habit: UserHabit): Result<Long> = safeDatabaseCall {
         userHabitDao.insert(habit)
     }
-    
-    /**
-     * 删除习惯
-     */
+
     suspend fun deleteHabit(habit: UserHabit): Result<Int> = safeDatabaseCall {
         userHabitDao.delete(habit)
     }
-    
-    /**
-     * 获取用户的所有习惯（一次性查询）
-     */
+
     suspend fun getHabitsByUsernameOnce(username: String): Result<List<UserHabit>> = safeDatabaseCall {
         userHabitDao.getAllHabitsOnce(username)
     }
+
+    /**
+     * 【AI引擎专用】：智能合并与保存 AI 提取的习惯规则 (草稿状态)
+     */
+    suspend fun mergeAndSaveAIHabits(newHabits: List<UserHabit>, username: String): Result<Unit> = safeDatabaseCall {
+        for (newHabit in newHabits) {
+            val existingHabit = userHabitDao.getHabitByDeviceAndAction(newHabit.deviceId, newHabit.actionCommand, username)
+
+            if (existingHabit == null) {
+                // 不存在该动作的规律：作为全新草稿插入（引擎内部已设 isEnabled = false）
+                userHabitDao.insert(newHabit)
+            } else {
+                // 已存在该动作的规律：仅平滑更新周期、环境和置信度，绝不覆盖用户自定义的名字和开关状态
+                val updatedHabit = existingHabit.copy(
+                    timeWindow = newHabit.timeWindow,
+                    weekType = newHabit.weekType,
+                    environmentThreshold = newHabit.environmentThreshold,
+                    confidence = newHabit.confidence
+                )
+                userHabitDao.update(updatedHabit)
+            }
+        }
+    }
 }
-
-
